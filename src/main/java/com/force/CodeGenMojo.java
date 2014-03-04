@@ -27,6 +27,7 @@
 package com.force;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Set;
 
 import org.apache.maven.plugin.AbstractMojo;
@@ -41,6 +42,8 @@ import com.force.sdk.codegen.filter.ObjectNameWithRefFilter;
 import com.force.sdk.codegen.filter.ObjectNoOpFilter;
 import com.force.sdk.connector.ForceServiceConnector;
 import com.sforce.soap.partner.PartnerConnection;
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
 
 /**
  * Goal which generates Java Classes based on Force.com objects.
@@ -64,7 +67,13 @@ public class CodeGenMojo extends AbstractMojo {
      * @parameter expression="${force.codegen.all}" default-value=false
      */
     private boolean all;
-    
+
+    /**
+     * Typesafe config file that describes the objects and fields to include or exclude.
+     * @parameter expression="${force.codegen.inclusionConfigFile}"
+     */
+    private File inclusionConfigFile;
+
     /**
      * Names of Force.com objects to include for generation.
      * @parameter
@@ -124,8 +133,12 @@ public class CodeGenMojo extends AbstractMojo {
         
         ForceJPAClassGenerator generator = new ForceJPAClassGenerator();
         generator.setPackageName(packageName);
-        if (!initFilters(generator)) return;
-        
+        try {
+            if (!initFilters(generator)) return;
+        } catch (IOException e) {
+            getLog().error(e);
+        }
+
         int numGeneratedFiles;
         try {
             getLog().info("Generating Force.com JPA classes in " + destDir);
@@ -143,7 +156,7 @@ public class CodeGenMojo extends AbstractMojo {
         return new ForceServiceConnector(connectionName);
     }
     
-    boolean initFilters(ForceJPAClassGenerator generator) {
+    boolean initFilters(ForceJPAClassGenerator generator) throws IOException {
         
         getLog().debug("Setting up code generation filters");
         if (all) {
@@ -152,24 +165,32 @@ public class CodeGenMojo extends AbstractMojo {
         } else {
             ObjectCombinationFilter objectFilter = new ObjectCombinationFilter();
             FieldCombinationFilter fieldFilter = new FieldCombinationFilter();
-            
-            if (includes != null && !includes.isEmpty()) {
-                if (followReferences) {
-                    getLog().debug("Filtering in the following Force.com objects with references " + includes);
-                    objectFilter.addFilter(new ObjectNameWithRefFilter(includes));
-                } else {
-                    getLog().debug("Filtering in the following Force.com objects without references " + includes);
-                    objectFilter.addFilter(new ObjectNameFilter(true, includes));
-                    fieldFilter.addFilter(new FieldReferenceFilter(true, includes));
+
+            if (inclusionConfigFile != null && inclusionConfigFile.canRead()) {
+                getLog().debug("Filtering based on config file " + inclusionConfigFile.getCanonicalPath() + "...");
+                Config config = ConfigFactory.parseFileAnySyntax(inclusionConfigFile);
+                objectFilter.addFilter(new ConfigObjectFilter(config, getLog()));
+                fieldFilter.addFilter(new ConfigFieldFilter(config, getLog()));
+            }
+
+            else {
+                if (includes != null && !includes.isEmpty()) {
+                    if (followReferences) {
+                        getLog().debug("Filtering in the following Force.com objects with references " + includes);
+                        objectFilter.addFilter(new ObjectNameWithRefFilter(includes));
+                    } else {
+                        getLog().debug("Filtering in the following Force.com objects without references " + includes);
+                        objectFilter.addFilter(new ObjectNameFilter(true, includes));
+                        fieldFilter.addFilter(new FieldReferenceFilter(true, includes));
+                    }
+                }
+                if (excludes != null && !excludes.isEmpty()) {
+                    getLog().debug("Filtering out the following Force.com objects " + excludes);
+                    objectFilter.addFilter(new ObjectNameFilter(false, excludes));
+                    fieldFilter.addFilter(new FieldReferenceFilter(false, excludes));
                 }
             }
-            
-            if (excludes != null && !excludes.isEmpty()) {
-                getLog().debug("Filtering out the following Force.com objects " + excludes);
-                objectFilter.addFilter(new ObjectNameFilter(false, excludes));
-                fieldFilter.addFilter(new FieldReferenceFilter(false, excludes));
-            }
-            
+
             if (objectFilter.getFilterList().isEmpty()) {
                 getLog().warn("No JPA classes generated. Please specify the schema object names or use -Dforce.codegen.all");
                 return false;

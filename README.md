@@ -102,6 +102,7 @@ This configuration generates classes for all objects excluding those listed in a
 * `<all>true</all>`
 * `<includes>`
 * `<excludes>`
+* `<inclusionConfigFile>` (see below)
 
 The default directory for generated Java source files is `src/main/java`. You can override the default by defining a `<destDir>` element.
 
@@ -116,6 +117,81 @@ The default Java package name is `com.<orgNameDenormalized>.model`, where `<orgN
     
 **Important Note**: If you plan on creating Force.com schema through the JPA provider, you should only ever run JPA code generation *once*.  Failing to do this
 might result in conflicts among your Java classes if you manually change the generated code and then run code generation again. If you plan on managing Force.com schema outside of the JPA provider, then you may run JPA code generation as many times as you like.
+
+### Using a HOCON (typesafe config) configuration
+
+#### Format
+
+You may want to have finer-grained control over exactly which fields are generated for each object. You can use a [HOCON configuration file](https://github.com/typesafehub/config/blob/master/HOCON.md) to do this. Here is an example:
+
+```
+Account = [Legacy_User_Id__c, FirstName, LastName, PersonEmail, RecordTypeId,
+           PersonLeadSource, AccountSource, Account_Status__c, Phone, PersonMailingCity,
+           PersonMailingState, PersonMailingPostalCode]
+Contact = [FirstName, LastName, Email]
+Opportunity = [Account, RecordType, Name, StageName, Type, CloseDate, LeadSource]
+OpportunityLineItem = [Opportunity, PricebookEntry, Quantity, TotalPrice, UnitPrice, ListPrice]
+```
+Pretty simple stuff, really. The value before the equals sign is an object name. Any underscores in the object name are ignored during the matching process (the same goes for an "__c" suffix at the end of the name). Values enclosed in square brackets after the equals sign indicate the fields to include in the generated object. You can achieve very fine-grained control over what you are generating, so that you only generate the objects and fields that you really need.
+
+But wait, there's more! You can also take advantage of wildcards and exclusions. Perhaps you have an object where you want to include every field, but you're too lazy to type them all in:
+
+```
+Package = [_]
+```
+Or maybe you have objects where you want to include everything except for one or two fields. This is where the ~ symbol come in. Any field starting with ~ will not be included in the generated class, so in the example below, CurrencyIsoCode will not be included:
+
+```
+NegativeLinks = [_, ~CurrencyIsoCode]
+```
+You can also specify inclusions or exclusions that apply to every object. For instance, you could put this line at the top of your configuration file:
+
+```
+_ = [Name, ~ConnectionReceived, ~ConnectionSent]
+```
+This will ensure that the name field is included for every object that has a name, and that the ConnectionReceived and ConnectionSent fields will be excluded from the objects that have those fields defined.
+
+Here's an example that puts it all together:
+
+```
+// globals
+
+_ = [Name, ~ConnectionReceived, ~ConnectionSent]
+
+// objects
+
+Account = [Legacy_User_Id__c, FirstName, LastName, PersonEmail, RecordTypeId,
+           PersonLeadSource, AccountSource, Account_Status__c, Phone, PersonMailingCity,
+           PersonMailingState, PersonMailingPostalCode]
+
+ChargentBaseGateway = [Id]
+Contact = [FirstName, LastName, Email]
+NegativeLinks = [_, ~CurrencyIsoCode]
+
+##
+Opportunity = [Account, RecordType, Name, StageName, Type, CloseDate, LeadSource]
+OpportunityLineItem = [Opportunity, PricebookEntry, Quantity, TotalPrice, UnitPrice, ListPrice]
+Package = [_]
+RecordType = [_, ~BusinessProcess]
+Task = [_]
+
+User = [username, lastName, firstName, name, companyName, division, department, street,
+        city, state, postalCode, country, email, phone, fax, mobilePhone, alias, isActive]
+```
+#### Required Maven Configuration
+
+To make use of this feature, just specify a valid configuration file in the **inclusionConfigFile** option, as shown here:
+
+```
+<configuration>
+    <connectionName>con</connectionName>
+    <inclusionConfigFile>${basedir}/src/main/resources/objects.conf</inclusionConfigFile>
+    <destDir>${project.build.directory}/generated-sources/salesforce</destDir>
+    <packageName>com.soboko.salesforce.model</packageName>
+</configuration>
+
+```
+
 
 ##Generating Force.com JPA Entities
 After you have configured your `pom.xml` file, generate JPE entities by running:
