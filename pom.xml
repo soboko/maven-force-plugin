@@ -5,7 +5,7 @@
   <groupId>com.force</groupId>
   <artifactId>maven-force-plugin</artifactId>
   <name>maven-force-plugin</name>
-  <version>22.0.6-SNAPSHOT</version>
+  <version>22.0.5.1-SNAPSHOT</version>
   <packaging>maven-plugin</packaging>
   <description>Maven Plugin the Force.com platform</description>
   <url>http://www.force.com/</url>
@@ -50,7 +50,7 @@
     <force.version.max>22.1</force.version.max>
     
     <force.api.version>[${force.version.min}.0, ${force.version.max}.0)</force.api.version>
-    <force.sdk.version>${project.version}</force.sdk.version>
+    <force.sdk.version>22.0.9.1-SNAPSHOT</force.sdk.version>
     <java.compile.version>1.6</java.compile.version>
     
     <!-- Whether to fail a static analysis build when an error or warning is found -->

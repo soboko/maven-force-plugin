@@ -15,6 +15,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.sforce.soap.partner.DescribeSObjectResult;
 import com.sforce.soap.partner.Field;
+import com.sforce.soap.partner.FieldType;
 import com.typesafe.config.Config;
 
 public class ConfigFieldFilter implements FieldFilter {
@@ -93,11 +94,17 @@ public class ConfigFieldFilter implements FieldFilter {
         final Set<String> completeIncludes = Sets.union(includeFields, globalIncludeFields);
         final Set<String> completeExcludes = Sets.union(excludeFields, globalExcludeFields);
 
+        Field f = new Field();
+
         Iterable<Field> filteredFields = Iterables.filter(Lists.newArrayList(dsr.getFields()), new Predicate<Field>() {
             @Override
             public boolean apply(final Field field) {
                 String fieldNameLower = field.getName().toLowerCase();
                 String sansId = fieldNameLower.replaceAll("id$", "");
+
+                if (field.getType() == FieldType.combobox) {
+                    field.setType(FieldType.picklist);
+                }
 
                 if (includeAll.get()) {
                     return !completeExcludes.contains(fieldNameLower) && !completeExcludes.contains(sansId);

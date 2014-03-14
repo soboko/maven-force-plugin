@@ -73,7 +73,12 @@ public class CodeGenMojoTest extends AbstractMojoTestCase {
     public void deleteDestinationDirectory() {
         new File(POM_ROOT_DIR + "target").delete();
     }
-    
+
+    @Test
+    public void testMe() {
+
+    }
+
     @Test
     public void testTestEnvironment() throws Exception {
         loadCodeGenMojo("BasicPom.xml");
@@ -94,7 +99,13 @@ public class CodeGenMojoTest extends AbstractMojoTestCase {
         ForceJPAClassGenerator generator = new ForceJPAClassGenerator();
         assertFalse("Unexpected result for initFilters", codeGenMojo.initFilters(generator));
     }
-    
+
+    @Test
+    public void testConfig() throws Exception {
+        CodeGenMojo codeGenMojo = loadCodeGenMojo("ConfigPom.xml");
+        codeGenMojo.execute();
+    }
+
     @Test
     public void testAll() throws Exception {
         CodeGenMojo codeGenMojo = loadCodeGenMojo("AllPom.xml");

@@ -30,6 +30,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Set;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 
@@ -58,9 +59,14 @@ public class CodeGenMojo extends AbstractMojo {
     /**
      * Named configuration for connecting to Force.com.
      * @parameter expression="${force.codegen.connectionName}"
-     * @required
      */
     private String connectionName;
+
+    /**
+     * URL for connecting to Force.com. Overrides connectionName, if specified.
+     * @parameter expression="${force.codegen.connectionUrl}"
+     */
+    private String connectionUrl;
     
     /**
      * Use all Force.com objects for generation.
@@ -70,9 +76,9 @@ public class CodeGenMojo extends AbstractMojo {
 
     /**
      * Typesafe config file that describes the objects and fields to include or exclude.
-     * @parameter expression="${force.codegen.inclusionConfigFile}"
+     * @parameter expression="${force.codegen.configFile}"
      */
-    private File inclusionConfigFile;
+    private File configFile;
 
     /**
      * Names of Force.com objects to include for generation.
@@ -118,6 +124,13 @@ public class CodeGenMojo extends AbstractMojo {
         if (skip) {
             getLog().info("Skipping Force.com code generation.");
             return;
+        }
+
+        if (StringUtils.isNotBlank(connectionUrl)) {
+            System.setProperty("force.connection.url", connectionUrl);
+            connectionName = "connection";
+        } else if (StringUtils.isBlank(connectionName)) {
+            throw new MojoExecutionException("Either a connectionUrl or a connectionName must be specified.");
         }
         
         PartnerConnection conn;
@@ -166,11 +179,12 @@ public class CodeGenMojo extends AbstractMojo {
             ObjectCombinationFilter objectFilter = new ObjectCombinationFilter();
             FieldCombinationFilter fieldFilter = new FieldCombinationFilter();
 
-            if (inclusionConfigFile != null && inclusionConfigFile.canRead()) {
-                getLog().debug("Filtering based on config file " + inclusionConfigFile.getCanonicalPath() + "...");
-                Config config = ConfigFactory.parseFileAnySyntax(inclusionConfigFile);
+            if (configFile != null && configFile.canRead()) {
+                getLog().debug("Filtering based on config file " + configFile.getCanonicalPath() + "...");
+                Config config = ConfigFactory.parseFileAnySyntax(configFile);
                 objectFilter.addFilter(new ConfigObjectFilter(config, getLog()));
                 fieldFilter.addFilter(new ConfigFieldFilter(config, getLog()));
+                generator.setConfig(config);
             }
 
             else {
